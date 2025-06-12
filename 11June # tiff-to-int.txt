@@ -1,0 +1,40 @@
+# Tiff --> Int
+import arcpy
+import os
+from arcpy.sa import Int, Raster  # import Spatial Analyst tools
+
+# Check out Spatial Analyst license
+arcpy.CheckOutExtension("Spatial")
+
+# Base directory with all country folders 
+base_dir = r"C:\Data\Countries"
+
+# Loop through each folder
+for country in os.listdir(base_dir):
+    country_path = os.path.join(base_dir, country)
+
+    if not os.path.isdir(country_path):
+        continue
+
+    # Get .tif files in the folder
+    tif_files = [f for f in os.listdir(country_path) if f.lower().endswith(".tif")]
+
+    if len(tif_files) != 2:
+        print(f"⚠️ Skipping {country}: expected 2 .tif files, found {len(tif_files)}")
+        continue
+
+    for tif in tif_files:
+        input_path = os.path.join(country_path, tif)
+        output_name = os.path.splitext(tif)[0] + "_int.tif"
+        output_path = os.path.join(country_path, output_name)
+
+        try:
+            raster = Raster(input_path)
+            int_raster = Int(raster)
+            int_raster.save(output_path)
+            print(f"✅ Saved {output_name} in {country}")
+        except Exception as e:
+            print(f"❌ Error processing {tif} in {country}: {e}")
+
+# Check in Spatial Analyst
+arcpy.CheckInExtension("Spatial")

@@ -1,0 +1,46 @@
+#Merging Zonal Stat
+import arcpy
+import os
+
+# === Settings ===
+population_dir = r"C:\Users\atllam\Desktop\Data\Population"
+output_gdb = r"C:\Users\atllam\Desktop\Data\Countries_Population.gdb"
+arcpy.env.workspace = population_dir
+arcpy.env.overwriteOutput = True
+
+# Temporary list of tables to merge
+tables_2015 = []
+tables_2020 = []
+
+# Loop through folders (countries)
+for country in os.listdir(population_dir):
+    country_path = os.path.join(population_dir, country)
+    if not os.path.isdir(country_path):
+        continue
+
+    # Check for zonal tables
+    for file in os.listdir(country_path):
+        if file.startswith("zonal_2015_") and file.endswith(".dbf"):
+            tables_2015.append(os.path.join(country_path, file))
+        elif file.startswith("zonal_2020_") and file.endswith(".dbf"):
+            tables_2020.append(os.path.join(country_path, file))
+
+# Output paths
+master_2015 = os.path.join(output_gdb, "master_zonal_2015")
+master_2020 = os.path.join(output_gdb, "master_zonal_2020")
+
+# Merge 2015 tables
+if tables_2015:
+    print(f"? Merging {len(tables_2015)} zonal 2015 tables...")
+    arcpy.management.Merge(tables_2015, master_2015)
+    print(f"? Master 2015 table created: {master_2015}")
+else:
+    print("?? No 2015 zonal tables found.")
+
+# Merge 2020 tables
+if tables_2020:
+    print(f"? Merging {len(tables_2020)} zonal 2020 tables...")
+    arcpy.management.Merge(tables_2020, master_2020)
+    print(f"? Master 2020 table created: {master_2020}")
+else:
+    print("?? No 2020 zonal tables found.")

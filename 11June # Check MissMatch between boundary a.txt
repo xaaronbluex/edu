@@ -1,0 +1,66 @@
+#Check MissMatch between boundary and zonal_stat_table
+import arcpy
+import os
+
+# Settings
+zone_gdb = r"C:\Users\atllam\Desktop\Data\Countries_Boundary.gdb"
+population_dir = r"C:\Users\atllam\Desktop\Data\Population"
+zone_field = "gaul2_code"
+
+def get_unique_codes(table, field):
+    codes = set()
+    if arcpy.Exists(table):
+        with arcpy.da.SearchCursor(table, [field]) as cursor:
+            for row in cursor:
+                if row[0] is not None:
+                    codes.add(row[0])
+    return codes
+
+# Track countries with mismatches
+countries_with_missing = {}
+
+# Loop through all folders (countries) in Population
+for country in os.listdir(population_dir):
+    country_folder = os.path.join(population_dir, country)
+    if not os.path.isdir(country_folder):
+        continue
+
+    # Match corresponding feature class in GDB
+    zone_fc = os.path.join(zone_gdb, country)
+    if not arcpy.Exists(zone_fc):
+        print(f"?? Zone feature for {country} not found in GDB.")
+        continue
+
+    # Get all .dbf zonal stat tables (exclude .vat.dbf etc.)
+    dbf_tables = [f for f in os.listdir(country_folder) if f.lower().endswith(".dbf") and f.startswith("zonal_")]
+    dbf_paths = [os.path.join(country_folder, f) for f in dbf_tables]
+
+    # Get gaul2_code values from zone feature class
+    zone_codes = get_unique_codes(zone_fc, zone_field)
+
+    for dbf_path in dbf_paths:
+        if not arcpy.Exists(dbf_path):
+            continue
+
+        name = os.path.basename(dbf_path)
+        print(f"\n?? Checking: {name} in {country}...")
+
+        zonal_codes = get_unique_codes(dbf_path, zone_field)
+        missing = zone_codes - zonal_codes
+
+        print(f"?? Total zones: {len(zone_codes)}, zonal records: {len(zonal_codes)}")
+        if missing:
+            print(f"? Missing gaul2_code(s): {sorted(missing)}")
+            countries_with_missing.setdefault(country, []).append((name, sorted(missing)))
+        else:
+            print("? All zones accounted for.")
+
+# Final summary
+print("\n?? Summary of mismatched countries:")
+if countries_with_missing:
+    for country, issues in countries_with_missing.items():
+        print(f"\n?? {country}:")
+        for table, missing_codes in issues:
+            print(f"   - {table}: missing {len(missing_codes)} code(s)")
+else:
+    print("?? All zonal tables match the zones perfectly.")

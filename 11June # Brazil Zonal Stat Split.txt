@@ -1,0 +1,67 @@
+# Brazil Zonal Stat Split 
+import arcpy
+import os
+import math
+
+# Inputs
+zones = r"C:\Users\atllam\Desktop\Data\Countries_Boundary.gdb\Brazil"
+zone_field = "gaul2_code"
+objectid_field = "OBJECTID_1"
+raster = r"C:\Users\atllam\Desktop\Data\Population\Brazil\bra_ppp_2015_UNadj_int.tif"
+output_folder = r"C:\Users\atllam\Desktop\Data\Population\Brazil"
+final_output = os.path.join(output_folder, "zonal_brazil_2015.dbf")
+
+# Ensure output folder exists
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
+
+# Total number of polygons
+total_zones = 5571
+batch_size = 1000
+num_batches = math.ceil(total_zones / batch_size)
+
+# Check out Spatial Analyst
+arcpy.CheckOutExtension("Spatial")
+
+table_paths = []
+
+for batch in range(num_batches):
+    start_id = batch * batch_size
+    end_id = min(start_id + batch_size, total_zones)
+
+    # Note: OBJECTID_1 is assumed to start from 0 or 1 ?adjust accordingly if needed
+    where_clause = f"{objectid_field} > {start_id} AND {objectid_field} <= {end_id}"
+    temp_layer = f"zones_batch_{batch}"
+    table_name = f"zonal_batch_{batch}.dbf"
+    table_path = os.path.join(output_folder, table_name)
+
+    try:
+        # Create a temporary feature layer for the batch
+        arcpy.management.MakeFeatureLayer(zones, temp_layer, where_clause)
+
+        # Run Zonal Statistics as Table on the current batch
+        arcpy.sa.ZonalStatisticsAsTable(
+            in_zone_data=temp_layer,
+            zone_field=zone_field,
+            in_value_raster=raster,
+            out_table=table_path,
+            ignore_nodata="DATA",
+            statistics_type="SUM"
+        )
+
+        table_paths.append(table_path)
+        print(f"? Batch {batch + 1}/{num_batches} completed: {table_name}")
+
+    except Exception as e:
+        print(f"? Failed batch {batch + 1}: {e}")
+
+# Merge all batch tables
+if table_paths:
+    print("\n?? Merging all batch tables...")
+    arcpy.management.Merge(table_paths, final_output)
+    print(f"? Final merged zonal stats table saved at:\n{final_output}")
+else:
+    print("?? No output tables to merge. Check earlier errors.")
+
+# Release license
+arcpy.CheckInExtension("Spatial")
